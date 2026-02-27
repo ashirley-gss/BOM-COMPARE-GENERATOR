@@ -87,6 +87,14 @@ SOURCE_VALUE_TO_LABEL = {v: k for k, v in SOURCE_OPTIONS}  # for messages
 CATEGORY_LABELS = [t[0] for t in CATEGORY_OPTIONS]
 SOURCE_LABELS = [t[0] for t in SOURCE_OPTIONS]
 
+# Max lengths from BOM Compare template Field_Info (for st.text_input max_chars)
+MAX_LEN = {
+    "PartNo": 17, "Revision": 3, "Description": 30, "AltDescription1": 30, "AltDescription2": 30, "DescExtra": 30,
+    "IssueUM": 2, "UM": 2, "Source": 20, "Drawing": 30, "Leadtime": 2, "Level": 30, "Location": 30,
+    "Memo1": 30, "Memo2": 30, "Parent": 17, "Productline": 2, "Sequence": 12, "SortCode": 6, "Tag": 1,
+    "Category": 1, "BomComplete": 1, "BomComments": 1, "Router": 20,
+}
+
 
 def _apply_random_row_defaults(rows, manufactured_count, apply_revision_to_all, apply_location_to_all, parent_revision, parent_location):
     """Set UM=EA, Location/Revision from parent if apply, Category=Normal, Source (first N=F rest J), Productline CP/CM."""
@@ -120,42 +128,24 @@ def main():
     st.title("😀 BOM Compare File Generator")
     st.markdown("Generate a Bill of Material .xlsx file with user defined or randomly generated parts to be used in BOM Compare.")
 
-    # Sidebar: template selection
+    # Sidebar: default template only
     with st.sidebar:
         st.header("Template Settings")
-        template_option = st.radio(
-            "Template Source",
-            ["Use Default Template", "Upload Template", "Use Custom Path"],
-            help="Choose how to load the template file",
-        )
-        template_path = None
-        if template_option == "Use Default Template":
-            default_path = Path(__file__).parent.parent.parent / "templates" / "BOM_COMPARE_TEMPLATE.xlsx"
-            if default_path.exists():
-                template_path = default_path
-                st.success("Using default template")
-            else:
-                st.error("Default template not found")
-                st.info("Upload a template or use a custom path")
-        elif template_option == "Upload Template":
-            uploaded_file = st.file_uploader("Upload Template Excel File", type=["xlsx", "xls"])
-            if uploaded_file:
-                temp_path = Path("temp_template.xlsx")
-                with open(temp_path, "wb") as f:
-                    f.write(uploaded_file.getbuffer())
-                template_path = temp_path
-                st.success("Template uploaded")
-        elif template_option == "Use Custom Path":
-            custom_path = st.text_input("Template File Path")
-            if custom_path:
-                template_path = Path(custom_path)
-                if template_path.exists():
-                    st.success("Template path valid")
-                else:
-                    st.error("Template file not found")
+        default_path = Path(__file__).parent.parent.parent / "templates" / "BOM_COMPARE_TEMPLATE.xlsx"
+        template_path = default_path if default_path.exists() else None
+        if template_path:
+            st.success("Using default template")
+            template_bytes = template_path.read_bytes()
+            st.download_button(
+                label="Download template",
+                data=template_bytes,
+                file_name="BOM_COMPARE_TEMPLATE.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key="sidebar_download_template",
+            )
 
     if not template_path or not template_path.exists():
-        st.info("👈 Select or upload a template file in the sidebar to begin.")
+        st.error("Default template not found. Place **BOM_COMPARE_TEMPLATE.xlsx** in the **templates** folder.")
         return
 
     try:
@@ -182,36 +172,44 @@ def main():
     st.subheader("BOM structure")
     st.caption("Expand or collapse each level. Enter parts in a hierarchy like BOM Compare (Parent → Level 1 → Level 2 → Level 3).")
     with st.expander("📄 Parent part", expanded=True):
+        use_long_part = st.checkbox(
+            "Use Long Part",
+            value=False,
+            key="use_long_part",
+            help="When checked, PartNo max length = 50 and Revision max length = 10 for all levels.",
+        )
+        max_partno = 50 if use_long_part else MAX_LEN["PartNo"]
+        max_revision = 10 if use_long_part else MAX_LEN["Revision"]
         c1, c2, c3, c4, c5 = st.columns(5)
         with c1:
-            parent_partno = st.text_input("Parent PartNo *", key="parent_partno", placeholder="")
-            parent_description = st.text_input("Description *", key="parent_desc", placeholder="")
+            parent_partno = st.text_input("Parent PartNo *", key="parent_partno", placeholder="", max_chars=max_partno)
+            parent_revision = st.text_input("Revision", key="parent_revision", placeholder="", max_chars=max_revision)
+            parent_description = st.text_input("Description *", key="parent_desc", placeholder="", max_chars=MAX_LEN["Description"])
             parent_quantity = st.number_input("Quantity *", min_value=0.0, value=1.0, key="parent_qty", step=1.0, format="%.2f")
-            parent_um = st.text_input("UM", key="parent_um", value="EA")
-            parent_productline = st.text_input("Productline", key="parent_productline", value="FG", placeholder="")
+            parent_um = st.text_input("UM", key="parent_um", value="EA", max_chars=MAX_LEN["UM"])
+            parent_productline = st.text_input("Productline", key="parent_productline", value="FG", placeholder="", max_chars=MAX_LEN["Productline"])
         with c2:
-            parent_revision = st.text_input("Revision", key="parent_revision", placeholder="")
-            parent_altdesc1 = st.text_input("AltDescription1", key="parent_altdesc1", placeholder="")
-            parent_altdesc2 = st.text_input("AltDescription2", key="parent_altdesc2", placeholder="")
-            parent_descextra = st.text_input("DescExtra", key="parent_descextra", placeholder="")
-            parent_issue_um = st.text_input("IssueUM", key="parent_issue_um", placeholder="")
+            parent_altdesc1 = st.text_input("AltDescription1", key="parent_altdesc1", placeholder="", max_chars=MAX_LEN["AltDescription1"])
+            parent_altdesc2 = st.text_input("AltDescription2", key="parent_altdesc2", placeholder="", max_chars=MAX_LEN["AltDescription2"])
+            parent_descextra = st.text_input("DescExtra", key="parent_descextra", placeholder="", max_chars=MAX_LEN["DescExtra"])
+            parent_issue_um = st.text_input("IssueUM", key="parent_issue_um", placeholder="", max_chars=MAX_LEN["IssueUM"])
         with c3:
             parent_consumption = st.text_input("ConsumptionConv", key="parent_consumption", placeholder="")
             parent_cost = st.number_input("Cost", min_value=0.0, value=None, step=0.01, format="%.2f", key="parent_cost")
             parent_source_label = st.selectbox("Source", options=SOURCE_LABELS, index=SOURCE_LABELS.index("Manufactured to Stock"), key="parent_source")
-            parent_drawing = st.text_input("Drawing", key="parent_drawing", placeholder="")
-            parent_leadtime = st.text_input("Leadtime", key="parent_leadtime", placeholder="")
+            parent_drawing = st.text_input("Drawing", key="parent_drawing", placeholder="", max_chars=MAX_LEN["Drawing"])
+            parent_leadtime = st.text_input("Leadtime", key="parent_leadtime", placeholder="", max_chars=MAX_LEN["Leadtime"])
         with c4:
-            parent_location = st.text_input("Location", key="parent_location", placeholder="")
-            parent_memo1 = st.text_input("Memo1", key="parent_memo1", placeholder="")
-            parent_memo2 = st.text_input("Memo2", key="parent_memo2", placeholder="")
-            parent_sortcode = st.text_input("SortCode", key="parent_sortcode", placeholder="")
-            parent_tag = st.text_input("Tag", key="parent_tag", placeholder="")
+            parent_location = st.text_input("Location", key="parent_location", placeholder="", max_chars=MAX_LEN["Location"])
+            parent_memo1 = st.text_input("Memo1", key="parent_memo1", placeholder="", max_chars=MAX_LEN["Memo1"])
+            parent_memo2 = st.text_input("Memo2", key="parent_memo2", placeholder="", max_chars=MAX_LEN["Memo2"])
+            parent_sortcode = st.text_input("SortCode", key="parent_sortcode", placeholder="", max_chars=MAX_LEN["SortCode"])
+            parent_tag = st.text_input("Tag", key="parent_tag", placeholder="", max_chars=MAX_LEN["Tag"])
         with c5:
             parent_category_label = st.selectbox("Category", options=CATEGORY_LABELS, key="parent_category")
-            parent_bomcomplete = st.text_input("BomComplete", key="parent_bomcomplete", placeholder="")
-            parent_bomcomments = st.text_input("BomComments", key="parent_bomcomments", placeholder="")
-            parent_router = st.text_input("Router", key="parent_router", placeholder="")
+            parent_bomcomplete = st.text_input("BomComplete", key="parent_bomcomplete", placeholder="", max_chars=MAX_LEN["BomComplete"])
+            parent_bomcomments = st.text_input("BomComments", key="parent_bomcomments", placeholder="", max_chars=MAX_LEN["BomComments"])
+            parent_router = st.text_input("Router", key="parent_router", placeholder="", max_chars=MAX_LEN["Router"])
         apply_revision_to_all = st.checkbox(
             "Apply Revision to all Component and Sub-Component Parts",
             value=False,
@@ -290,6 +288,14 @@ def main():
                 step=1,
                 key="l1_manufactured_count",
             )
+            use_long_part_numbers_l1 = False
+            if use_long_part:
+                use_long_part_numbers_l1 = st.checkbox(
+                    "Use Long Part Numbers",
+                    value=False,
+                    key="l1_use_long_part_numbers",
+                    help="Generate part numbers 20–50 characters long for this level.",
+                )
             multiselect_options = [f for f in TEMPLATE_HEADERS if f not in ("Parent", "Sequence", "Level")]
             fields_for_random = st.multiselect(
                 "Fields to populate",
@@ -300,7 +306,7 @@ def main():
             fields_set = set(fields_for_random) | {"Parent", "Sequence", "Level", "PartNo", "Quantity"}
             level1_random_fields_set = fields_set
             if random_child_rows:
-                child_data = random_child_rows(parent_partno, child_count, fields_to_populate=fields_set, level=1)
+                child_data = random_child_rows(parent_partno, child_count, fields_to_populate=fields_set, level=1, use_long_partno=use_long_part_numbers_l1)
                 _apply_random_row_defaults(child_data, int(l1_manufactured_count), apply_revision_to_all, apply_location_to_all, parent_revision, parent_location)
             else:
                 st.error("Random data module not available.")
@@ -312,42 +318,42 @@ def main():
                 with st.expander(f"Child #{i+1}", expanded=(i < 2)):
                     cols = st.columns([2, 1, 2, 1, 1, 1])  # narrower Qty/UM, wider Source
                     with cols[0]:
-                        c_partno = st.text_input("PartNo *", key=f"c_partno_{i}")
-                        c_desc = st.text_input("Description", key=f"c_desc_{i}")
+                        c_partno = st.text_input("PartNo *", key=f"c_partno_{i}", max_chars=max_partno)
+                        rev_default = (parent_revision or "") if apply_revision_to_all else ""
+                        c_revision = st.text_input("Revision", key=f"c_rev_{i}_ar{apply_revision_to_all}_p{parent_revision or ''}", value=rev_default, max_chars=max_revision)
+                        c_desc = st.text_input("Description", key=f"c_desc_{i}", max_chars=MAX_LEN["Description"])
                     with cols[1]:
                         c_qty = st.number_input("Quantity *", min_value=0.0, value=1.0, key=f"c_qty_{i}", step=1.0, format="%.2f")
-                        c_um = st.text_input("UM", value="EA", key=f"c_um_{i}")
+                        c_um = st.text_input("UM", value="EA", key=f"c_um_{i}", max_chars=MAX_LEN["UM"])
                     with cols[2]:
                         c_source_label = st.selectbox("Source", options=SOURCE_LABELS, key=f"c_source_{i}")
-                        c_pl = st.text_input("Productline", key=f"c_pl_{i}", placeholder="")
+                        c_pl = st.text_input("Productline", key=f"c_pl_{i}", placeholder="", max_chars=MAX_LEN["Productline"])
                     with cols[3]:
-                        rev_default = (parent_revision or "") if apply_revision_to_all else ""
-                        c_revision = st.text_input("Revision", key=f"c_rev_{i}_ar{apply_revision_to_all}_p{parent_revision or ''}", value=rev_default)
                         c_cost = st.number_input("Cost", min_value=0.0, value=None, step=0.01, format="%.2f", key=f"c_cost_{i}")
                     with cols[4]:
                         loc_default = (parent_location or "") if apply_location_to_all else ""
-                        c_location = st.text_input("Location", key=f"c_loc_{i}_al{apply_location_to_all}_p{parent_location or ''}", value=loc_default)
+                        c_location = st.text_input("Location", key=f"c_loc_{i}_al{apply_location_to_all}_p{parent_location or ''}", value=loc_default, max_chars=MAX_LEN["Location"])
                         c_category_label = st.selectbox("Category", options=CATEGORY_LABELS, key=f"c_cat_{i}")
                     with cols[5]:
-                        c_leadtime = st.text_input("Leadtime", key=f"c_lt_{i}")
-                        c_drawing = st.text_input("Drawing", key=f"c_draw_{i}")
+                        c_leadtime = st.text_input("Leadtime", key=f"c_lt_{i}", max_chars=MAX_LEN["Leadtime"])
+                        c_drawing = st.text_input("Drawing", key=f"c_draw_{i}", max_chars=MAX_LEN["Drawing"])
                     with st.expander("Additional fields", expanded=False):
                         ec1, ec2, ec3 = st.columns(3)
                         with ec1:
-                            c_altdesc1 = st.text_input("AltDescription1", key=f"c_altdesc1_{i}", placeholder="")
-                            c_altdesc2 = st.text_input("AltDescription2", key=f"c_altdesc2_{i}", placeholder="")
-                            c_descextra = st.text_input("DescExtra", key=f"c_descextra_{i}", placeholder="")
-                            c_issue_um = st.text_input("IssueUM", key=f"c_issue_um_{i}", placeholder="")
+                            c_altdesc1 = st.text_input("AltDescription1", key=f"c_altdesc1_{i}", placeholder="", max_chars=MAX_LEN["AltDescription1"])
+                            c_altdesc2 = st.text_input("AltDescription2", key=f"c_altdesc2_{i}", placeholder="", max_chars=MAX_LEN["AltDescription2"])
+                            c_descextra = st.text_input("DescExtra", key=f"c_descextra_{i}", placeholder="", max_chars=MAX_LEN["DescExtra"])
+                            c_issue_um = st.text_input("IssueUM", key=f"c_issue_um_{i}", placeholder="", max_chars=MAX_LEN["IssueUM"])
                             c_consumption = st.text_input("ConsumptionConv", key=f"c_consumption_{i}", placeholder="")
                         with ec2:
-                            c_memo1 = st.text_input("Memo1", key=f"c_memo1_{i}", placeholder="")
-                            c_memo2 = st.text_input("Memo2", key=f"c_memo2_{i}", placeholder="")
-                            c_sortcode = st.text_input("SortCode", key=f"c_sortcode_{i}", placeholder="")
-                            c_tag = st.text_input("Tag", key=f"c_tag_{i}", placeholder="")
+                            c_memo1 = st.text_input("Memo1", key=f"c_memo1_{i}", placeholder="", max_chars=MAX_LEN["Memo1"])
+                            c_memo2 = st.text_input("Memo2", key=f"c_memo2_{i}", placeholder="", max_chars=MAX_LEN["Memo2"])
+                            c_sortcode = st.text_input("SortCode", key=f"c_sortcode_{i}", placeholder="", max_chars=MAX_LEN["SortCode"])
+                            c_tag = st.text_input("Tag", key=f"c_tag_{i}", placeholder="", max_chars=MAX_LEN["Tag"])
                         with ec3:
-                            c_bomcomplete = st.text_input("BomComplete", key=f"c_bomcomplete_{i}", placeholder="")
-                            c_bomcomments = st.text_input("BomComments", key=f"c_bomcomments_{i}", placeholder="")
-                            c_router = st.text_input("Router", key=f"c_router_{i}", placeholder="")
+                            c_bomcomplete = st.text_input("BomComplete", key=f"c_bomcomplete_{i}", placeholder="", max_chars=MAX_LEN["BomComplete"])
+                            c_bomcomments = st.text_input("BomComments", key=f"c_bomcomments_{i}", placeholder="", max_chars=MAX_LEN["BomComments"])
+                            c_router = st.text_input("Router", key=f"c_router_{i}", placeholder="", max_chars=MAX_LEN["Router"])
                     child_data.append({
                         "PartNo": c_partno,
                         "Revision": c_revision or None,
@@ -410,9 +416,10 @@ def main():
                     if use_random_l2_per_l1:
                         count_random_l2 = st.number_input("Number of Level 2 parts per Level 1 part", min_value=1, max_value=30, value=2, key="count_random_l2")
                         l2_per_l1_manufactured = st.number_input("How many sub-components to have Source of Manufactured to Job?", min_value=0, max_value=int(count_random_l2), value=0, step=1, key="l2_per_l1_manufactured")
+                        use_long_part_numbers_l2_per_l1 = st.checkbox("Use Long Part Numbers", value=False, key="l2_per_l1_use_long_part_numbers", help="Generate part numbers 20–50 characters long.") if use_long_part else False
                         multiselect_options_l2 = [f for f in TEMPLATE_HEADERS if f not in ("Parent", "Sequence", "Level")]
                         fields_random_l2 = st.multiselect("Fields to populate", options=multiselect_options_l2, default=["PartNo", "Description", "Quantity", "Cost"], key="fields_random_l2")
-                        random_l2_per_l1 = {"count": count_random_l2, "fields": fields_random_l2, "manufactured_count": min(int(l2_per_l1_manufactured), count_random_l2)}
+                        random_l2_per_l1 = {"count": count_random_l2, "fields": fields_random_l2, "manufactured_count": min(int(l2_per_l1_manufactured), count_random_l2), "use_long_partno": use_long_part_numbers_l2_per_l1}
                 num_l2_groups = st.number_input("Number of Level 2 groups", min_value=0, max_value=20, value=0, step=1, key="num_l2_groups")
             random_all_l2 = False
             if not block_l2 and num_l2_groups > 0:
@@ -420,62 +427,64 @@ def main():
             multiselect_options_l2 = [f for f in TEMPLATE_HEADERS if f not in ("Parent", "Sequence", "Level")]
             if random_all_l2:
                 l2_all_manufactured = st.number_input("How many sub-components per group to have Source of Manufactured to Job?", min_value=0, max_value=2, value=0, step=1, key="l2_all_manufactured")
+                use_long_part_numbers_l2_all = st.checkbox("Use Long Part Numbers", value=False, key="l2_all_use_long_part_numbers", help="Generate part numbers 20–50 characters long.") if use_long_part else False
                 fields_all_l2 = st.multiselect("Fields to populate (all Level 2 groups)", options=multiselect_options_l2, default=["PartNo", "Description", "Quantity", "Cost"], key="fields_all_l2")
                 for g in range(num_l2_groups):
                     parent_l1 = level1_partnos_manufactured[g % len(level1_partnos_manufactured)]
-                    level2_config.append({"parent": parent_l1, "count": 2, "random": True, "fields": fields_all_l2, "manufactured_count": min(int(l2_all_manufactured), 2)})
+                    level2_config.append({"parent": parent_l1, "count": 2, "random": True, "fields": fields_all_l2, "manufactured_count": min(int(l2_all_manufactured), 2), "use_long_partno": use_long_part_numbers_l2_all})
             else:
                 for g in range(num_l2_groups):
                     with st.expander(f"Level 2 group {g+1}"):
-                        parent_l1 = st.selectbox("Parent (Level 1 part)", level1_partnos_manufactured, index=0, key=f"l2_parent_{g}")
+                        parent_l1 = st.selectbox("Select Parent", level1_partnos_manufactured, index=0, key=f"l2_parent_{g}")
                         count_l2 = st.number_input("Number of parts", min_value=1, max_value=50, value=2, key=f"l2_count_{g}")
                         use_random_l2 = st.checkbox("Randomly generate this group", key=f"l2_random_{g}")
                         if use_random_l2:
                             l2_grp_manufactured = st.number_input("How many sub-components to have Source of Manufactured to Job?", min_value=0, max_value=int(count_l2), value=0, step=1, key=f"l2_grp_manufactured_{g}")
+                            use_long_part_numbers_l2_grp = st.checkbox("Use Long Part Numbers", value=False, key=f"l2_grp_use_long_part_numbers_{g}", help="Generate part numbers 20–50 characters long.") if use_long_part else False
                             fields_l2 = st.multiselect("Fields to populate", options=multiselect_options_l2, default=["PartNo", "Description", "Quantity", "Cost"], key=f"l2_fields_{g}")
-                            level2_config.append({"parent": parent_l1, "count": count_l2, "random": True, "fields": fields_l2, "manufactured_count": min(int(l2_grp_manufactured), count_l2)})
+                            level2_config.append({"parent": parent_l1, "count": count_l2, "random": True, "fields": fields_l2, "manufactured_count": min(int(l2_grp_manufactured), count_l2), "use_long_partno": use_long_part_numbers_l2_grp})
                         else:
                             level2_config.append({"parent": parent_l1, "count": count_l2, "random": False, "manual_rows": []})
                             for j in range(count_l2):
                                 with st.expander(f"Level 2 part {j+1}"):
                                     cols = st.columns([2, 0.8, 2, 2, 1])  # narrow Qty/UM, wide Source
-                                    with cols[0]:
-                                        pno = st.text_input("PartNo *", key=f"l2_{g}_partno_{j}")
-                                        level2_manual_partnos.append(pno)
-                                        desc = st.text_input("Description", key=f"l2_{g}_desc_{j}")
-                                    with cols[1]:
-                                        qty = st.number_input("Quantity *", min_value=0.0, value=1.0, key=f"l2_{g}_qty_{j}", step=1.0, format="%.2f")
-                                        um = st.text_input("UM", value="EA", key=f"l2_{g}_um_{j}")
-                                    with cols[2]:
-                                        src_label = st.selectbox("Source", options=SOURCE_LABELS, key=f"l2_{g}_src_{j}")
-                                        cat_label = st.selectbox("Category", options=CATEGORY_LABELS, key=f"l2_{g}_cat_{j}")
-                                    with cols[3]:
-                                        pl = st.text_input("Productline", key=f"l2_{g}_pl_{j}", placeholder="")
-                                        cost_l2 = st.number_input("Cost", min_value=0.0, value=None, step=0.01, format="%.2f", key=f"l2_{g}_cost_{j}")
-                                        rev_l2_default = (parent_revision or "") if apply_revision_to_all else ""
-                                        rev_l2 = st.text_input("Revision", key=f"l2_{g}_rev_{j}_ar{apply_revision_to_all}_p{parent_revision or ''}", value=rev_l2_default)
-                                    with cols[4]:
-                                        loc_l2_default = (parent_location or "") if apply_location_to_all else ""
-                                        loc_l2 = st.text_input("Location", key=f"l2_{g}_loc_{j}_al{apply_location_to_all}_p{parent_location or ''}", value=loc_l2_default)
+                                with cols[0]:
+                                    pno = st.text_input("PartNo *", key=f"l2_{g}_partno_{j}", max_chars=max_partno)
+                                    level2_manual_partnos.append(pno)
+                                    rev_l2_default = (parent_revision or "") if apply_revision_to_all else ""
+                                    rev_l2 = st.text_input("Revision", key=f"l2_{g}_rev_{j}_ar{apply_revision_to_all}_p{parent_revision or ''}", value=rev_l2_default, max_chars=max_revision)
+                                    desc = st.text_input("Description", key=f"l2_{g}_desc_{j}", max_chars=MAX_LEN["Description"])
+                                with cols[1]:
+                                    qty = st.number_input("Quantity *", min_value=0.0, value=1.0, key=f"l2_{g}_qty_{j}", step=1.0, format="%.2f")
+                                    um = st.text_input("UM", value="EA", key=f"l2_{g}_um_{j}", max_chars=MAX_LEN["UM"])
+                                with cols[2]:
+                                    src_label = st.selectbox("Source", options=SOURCE_LABELS, key=f"l2_{g}_src_{j}")
+                                    cat_label = st.selectbox("Category", options=CATEGORY_LABELS, key=f"l2_{g}_cat_{j}")
+                                with cols[3]:
+                                    pl = st.text_input("Productline", key=f"l2_{g}_pl_{j}", placeholder="", max_chars=MAX_LEN["Productline"])
+                                    cost_l2 = st.number_input("Cost", min_value=0.0, value=None, step=0.01, format="%.2f", key=f"l2_{g}_cost_{j}")
+                                with cols[4]:
+                                    loc_l2_default = (parent_location or "") if apply_location_to_all else ""
+                                    loc_l2 = st.text_input("Location", key=f"l2_{g}_loc_{j}_al{apply_location_to_all}_p{parent_location or ''}", value=loc_l2_default, max_chars=MAX_LEN["Location"])
                                     with st.expander("Additional fields", expanded=False):
                                         e1, e2, e3 = st.columns(3)
                                         with e1:
-                                            altdesc1_l2 = st.text_input("AltDescription1", key=f"l2_{g}_altdesc1_{j}", placeholder="")
-                                            altdesc2_l2 = st.text_input("AltDescription2", key=f"l2_{g}_altdesc2_{j}", placeholder="")
-                                            descextra_l2 = st.text_input("DescExtra", key=f"l2_{g}_descextra_{j}", placeholder="")
-                                            issue_um_l2 = st.text_input("IssueUM", key=f"l2_{g}_issue_um_{j}", placeholder="")
+                                            altdesc1_l2 = st.text_input("AltDescription1", key=f"l2_{g}_altdesc1_{j}", placeholder="", max_chars=MAX_LEN["AltDescription1"])
+                                            altdesc2_l2 = st.text_input("AltDescription2", key=f"l2_{g}_altdesc2_{j}", placeholder="", max_chars=MAX_LEN["AltDescription2"])
+                                            descextra_l2 = st.text_input("DescExtra", key=f"l2_{g}_descextra_{j}", placeholder="", max_chars=MAX_LEN["DescExtra"])
+                                            issue_um_l2 = st.text_input("IssueUM", key=f"l2_{g}_issue_um_{j}", placeholder="", max_chars=MAX_LEN["IssueUM"])
                                             consumption_l2 = st.text_input("ConsumptionConv", key=f"l2_{g}_consumption_{j}", placeholder="")
-                                            drawing_l2 = st.text_input("Drawing", key=f"l2_{g}_drawing_{j}", placeholder="")
-                                            leadtime_l2 = st.text_input("Leadtime", key=f"l2_{g}_leadtime_{j}", placeholder="")
+                                            drawing_l2 = st.text_input("Drawing", key=f"l2_{g}_drawing_{j}", placeholder="", max_chars=MAX_LEN["Drawing"])
+                                            leadtime_l2 = st.text_input("Leadtime", key=f"l2_{g}_leadtime_{j}", placeholder="", max_chars=MAX_LEN["Leadtime"])
                                         with e2:
-                                            memo1_l2 = st.text_input("Memo1", key=f"l2_{g}_memo1_{j}", placeholder="")
-                                            memo2_l2 = st.text_input("Memo2", key=f"l2_{g}_memo2_{j}", placeholder="")
-                                            sortcode_l2 = st.text_input("SortCode", key=f"l2_{g}_sortcode_{j}", placeholder="")
-                                            tag_l2 = st.text_input("Tag", key=f"l2_{g}_tag_{j}", placeholder="")
+                                            memo1_l2 = st.text_input("Memo1", key=f"l2_{g}_memo1_{j}", placeholder="", max_chars=MAX_LEN["Memo1"])
+                                            memo2_l2 = st.text_input("Memo2", key=f"l2_{g}_memo2_{j}", placeholder="", max_chars=MAX_LEN["Memo2"])
+                                            sortcode_l2 = st.text_input("SortCode", key=f"l2_{g}_sortcode_{j}", placeholder="", max_chars=MAX_LEN["SortCode"])
+                                            tag_l2 = st.text_input("Tag", key=f"l2_{g}_tag_{j}", placeholder="", max_chars=MAX_LEN["Tag"])
                                         with e3:
-                                            bomcomplete_l2 = st.text_input("BomComplete", key=f"l2_{g}_bomcomplete_{j}", placeholder="")
-                                            bomcomments_l2 = st.text_input("BomComments", key=f"l2_{g}_bomcomments_{j}", placeholder="")
-                                            router_l2 = st.text_input("Router", key=f"l2_{g}_router_{j}", placeholder="")
+                                            bomcomplete_l2 = st.text_input("BomComplete", key=f"l2_{g}_bomcomplete_{j}", placeholder="", max_chars=MAX_LEN["BomComplete"])
+                                            bomcomments_l2 = st.text_input("BomComments", key=f"l2_{g}_bomcomments_{j}", placeholder="", max_chars=MAX_LEN["BomComments"])
+                                            router_l2 = st.text_input("Router", key=f"l2_{g}_router_{j}", placeholder="", max_chars=MAX_LEN["Router"])
                                     level2_config[-1]["manual_rows"].append({
                                         "PartNo": pno, "Description": desc, "Quantity": qty, "UM": um,
                                         "Source": SOURCE_DISPLAY_TO_VALUE.get(src_label) or None,
@@ -526,9 +535,10 @@ def main():
                     if use_random_l3_per_l2:
                         count_random_l3 = st.number_input("Number of Level 3 parts per Level 2 part", min_value=1, max_value=20, value=2, key="count_random_l3")
                         l3_per_l2_manufactured = st.number_input("How many sub-components to have Source of Manufactured to Job?", min_value=0, max_value=int(count_random_l3), value=0, step=1, key="l3_per_l2_manufactured")
+                        use_long_part_numbers_l3_per_l2 = st.checkbox("Use Long Part Numbers", value=False, key="l3_per_l2_use_long_part_numbers", help="Generate part numbers 20–50 characters long.") if use_long_part else False
                         multiselect_options_l3 = [f for f in TEMPLATE_HEADERS if f not in ("Parent", "Sequence", "Level")]
                         fields_random_l3 = st.multiselect("Fields to populate (L3)", options=multiselect_options_l3, default=["PartNo", "Description", "Quantity", "Cost"], key="fields_random_l3")
-                        random_l3_per_l2 = {"count": count_random_l3, "fields": fields_random_l3, "manufactured_count": min(int(l3_per_l2_manufactured), count_random_l3)}
+                        random_l3_per_l2 = {"count": count_random_l3, "fields": fields_random_l3, "manufactured_count": min(int(l3_per_l2_manufactured), count_random_l3), "use_long_partno": use_long_part_numbers_l3_per_l2}
                 if level2_partnos_for_l3:
                     st.caption("Or add groups below (parent dropdown lists PartNos from your Level 2 manual entries).")
                 elif not level2_partnos_for_l3:
@@ -540,64 +550,66 @@ def main():
             multiselect_options_l3 = [f for f in TEMPLATE_HEADERS if f not in ("Parent", "Sequence", "Level")]
             if random_all_l3:
                 l3_all_manufactured = st.number_input("How many sub-components per group to have Source of Manufactured to Job?", min_value=0, max_value=2, value=0, step=1, key="l3_all_manufactured")
+                use_long_part_numbers_l3_all = st.checkbox("Use Long Part Numbers", value=False, key="l3_all_use_long_part_numbers", help="Generate part numbers 20–50 characters long.") if use_long_part else False
                 fields_all_l3 = st.multiselect("Fields to populate (all Level 3 groups)", options=multiselect_options_l3, default=["PartNo", "Description", "Quantity", "Cost"], key="fields_all_l3")
                 for g in range(int(num_l3_groups)):
                     parent_l2 = level2_partnos_manufactured[g % len(level2_partnos_manufactured)]
-                    level3_config.append({"parent": parent_l2, "count": 2, "random": True, "fields": fields_all_l3, "manufactured_count": min(int(l3_all_manufactured), 2)})
+                    level3_config.append({"parent": parent_l2, "count": 2, "random": True, "fields": fields_all_l3, "manufactured_count": min(int(l3_all_manufactured), 2), "use_long_partno": use_long_part_numbers_l3_all})
             else:
                 for g in range(int(num_l3_groups)):
                     if not level2_partnos_for_l3:
                         st.info("**Level 3 groups** need at least one manual Level 2 part to choose as parent. Set **Number of Level 3 groups** to 0 and use **\"Randomly generate Level 3 Sub-Components\"** above — then click **Generate BOM** and Level 3 parts will be created under all manufactured Level 2 parts.")
                         break
                     with st.expander(f"Level 3 group {g+1}"):
-                        parent_l2 = st.selectbox("Parent (Level 2 part)", level2_partnos_manufactured, index=0, key=f"l3_parent_{g}")
+                        parent_l2 = st.selectbox("Select Parent", level2_partnos_manufactured, index=0, key=f"l3_parent_{g}")
                         count_l3 = st.number_input("Number of parts", min_value=1, max_value=50, value=2, key=f"l3_count_{g}")
                         use_random_l3 = st.checkbox("Randomly generate this group", key=f"l3_random_{g}")
                         if use_random_l3:
                             l3_grp_manufactured = st.number_input("How many sub-components to have Source of Manufactured to Job?", min_value=0, max_value=int(count_l3), value=0, step=1, key=f"l3_grp_manufactured_{g}")
+                            use_long_part_numbers_l3_grp = st.checkbox("Use Long Part Numbers", value=False, key=f"l3_grp_use_long_part_numbers_{g}", help="Generate part numbers 20–50 characters long.") if use_long_part else False
                             fields_l3 = st.multiselect("Fields to populate", options=multiselect_options_l3, default=["PartNo", "Description", "Quantity", "Cost"], key=f"l3_fields_{g}")
-                            level3_config.append({"parent": parent_l2, "count": count_l3, "random": True, "fields": fields_l3, "manufactured_count": min(int(l3_grp_manufactured), count_l3)})
+                            level3_config.append({"parent": parent_l2, "count": count_l3, "random": True, "fields": fields_l3, "manufactured_count": min(int(l3_grp_manufactured), count_l3), "use_long_partno": use_long_part_numbers_l3_grp})
                         else:
                             level3_config.append({"parent": parent_l2, "count": count_l3, "random": False, "manual_rows": []})
                             for j in range(count_l3):
                                 with st.expander(f"Level 3 part {j+1}"):
                                     cols = st.columns([2, 0.8, 2, 2, 1])  # narrow Qty/UM, wide Source
                                     with cols[0]:
-                                        pno = st.text_input("PartNo *", key=f"l3_{g}_partno_{j}")
-                                        desc = st.text_input("Description", key=f"l3_{g}_desc_{j}")
+                                        pno = st.text_input("PartNo *", key=f"l3_{g}_partno_{j}", max_chars=max_partno)
+                                        rev_l3_default = (parent_revision or "") if apply_revision_to_all else ""
+                                        rev_l3 = st.text_input("Revision", key=f"l3_{g}_rev_{j}_ar{apply_revision_to_all}_p{parent_revision or ''}", value=rev_l3_default, max_chars=max_revision)
+                                        desc = st.text_input("Description", key=f"l3_{g}_desc_{j}", max_chars=MAX_LEN["Description"])
                                     with cols[1]:
                                         qty = st.number_input("Quantity *", min_value=0.0, value=1.0, key=f"l3_{g}_qty_{j}", step=1.0, format="%.2f")
-                                        um = st.text_input("UM", value="EA", key=f"l3_{g}_um_{j}")
+                                        um = st.text_input("UM", value="EA", key=f"l3_{g}_um_{j}", max_chars=MAX_LEN["UM"])
                                     with cols[2]:
                                         src_label = st.selectbox("Source", options=SOURCE_LABELS, key=f"l3_{g}_src_{j}")
                                         cat_label = st.selectbox("Category", options=CATEGORY_LABELS, key=f"l3_{g}_cat_{j}")
                                     with cols[3]:
-                                        pl = st.text_input("Productline", key=f"l3_{g}_pl_{j}", placeholder="")
+                                        pl = st.text_input("Productline", key=f"l3_{g}_pl_{j}", placeholder="", max_chars=MAX_LEN["Productline"])
                                         cost_l3 = st.number_input("Cost", min_value=0.0, value=None, step=0.01, format="%.2f", key=f"l3_{g}_cost_{j}")
-                                        rev_l3_default = (parent_revision or "") if apply_revision_to_all else ""
-                                        rev_l3 = st.text_input("Revision", key=f"l3_{g}_rev_{j}_ar{apply_revision_to_all}_p{parent_revision or ''}", value=rev_l3_default)
                                     with cols[4]:
                                         loc_l3_default = (parent_location or "") if apply_location_to_all else ""
-                                        loc_l3 = st.text_input("Location", key=f"l3_{g}_loc_{j}_al{apply_location_to_all}_p{parent_location or ''}", value=loc_l3_default)
+                                        loc_l3 = st.text_input("Location", key=f"l3_{g}_loc_{j}_al{apply_location_to_all}_p{parent_location or ''}", value=loc_l3_default, max_chars=MAX_LEN["Location"])
                                     with st.expander("Additional fields", expanded=False):
                                         e1, e2, e3 = st.columns(3)
                                         with e1:
-                                            altdesc1_l3 = st.text_input("AltDescription1", key=f"l3_{g}_altdesc1_{j}", placeholder="")
-                                            altdesc2_l3 = st.text_input("AltDescription2", key=f"l3_{g}_altdesc2_{j}", placeholder="")
-                                            descextra_l3 = st.text_input("DescExtra", key=f"l3_{g}_descextra_{j}", placeholder="")
-                                            issue_um_l3 = st.text_input("IssueUM", key=f"l3_{g}_issue_um_{j}", placeholder="")
+                                            altdesc1_l3 = st.text_input("AltDescription1", key=f"l3_{g}_altdesc1_{j}", placeholder="", max_chars=MAX_LEN["AltDescription1"])
+                                            altdesc2_l3 = st.text_input("AltDescription2", key=f"l3_{g}_altdesc2_{j}", placeholder="", max_chars=MAX_LEN["AltDescription2"])
+                                            descextra_l3 = st.text_input("DescExtra", key=f"l3_{g}_descextra_{j}", placeholder="", max_chars=MAX_LEN["DescExtra"])
+                                            issue_um_l3 = st.text_input("IssueUM", key=f"l3_{g}_issue_um_{j}", placeholder="", max_chars=MAX_LEN["IssueUM"])
                                             consumption_l3 = st.text_input("ConsumptionConv", key=f"l3_{g}_consumption_{j}", placeholder="")
-                                            drawing_l3 = st.text_input("Drawing", key=f"l3_{g}_drawing_{j}", placeholder="")
-                                            leadtime_l3 = st.text_input("Leadtime", key=f"l3_{g}_leadtime_{j}", placeholder="")
+                                            drawing_l3 = st.text_input("Drawing", key=f"l3_{g}_drawing_{j}", placeholder="", max_chars=MAX_LEN["Drawing"])
+                                            leadtime_l3 = st.text_input("Leadtime", key=f"l3_{g}_leadtime_{j}", placeholder="", max_chars=MAX_LEN["Leadtime"])
                                         with e2:
-                                            memo1_l3 = st.text_input("Memo1", key=f"l3_{g}_memo1_{j}", placeholder="")
-                                            memo2_l3 = st.text_input("Memo2", key=f"l3_{g}_memo2_{j}", placeholder="")
-                                            sortcode_l3 = st.text_input("SortCode", key=f"l3_{g}_sortcode_{j}", placeholder="")
-                                            tag_l3 = st.text_input("Tag", key=f"l3_{g}_tag_{j}", placeholder="")
+                                            memo1_l3 = st.text_input("Memo1", key=f"l3_{g}_memo1_{j}", placeholder="", max_chars=MAX_LEN["Memo1"])
+                                            memo2_l3 = st.text_input("Memo2", key=f"l3_{g}_memo2_{j}", placeholder="", max_chars=MAX_LEN["Memo2"])
+                                            sortcode_l3 = st.text_input("SortCode", key=f"l3_{g}_sortcode_{j}", placeholder="", max_chars=MAX_LEN["SortCode"])
+                                            tag_l3 = st.text_input("Tag", key=f"l3_{g}_tag_{j}", placeholder="", max_chars=MAX_LEN["Tag"])
                                         with e3:
-                                            bomcomplete_l3 = st.text_input("BomComplete", key=f"l3_{g}_bomcomplete_{j}", placeholder="")
-                                            bomcomments_l3 = st.text_input("BomComments", key=f"l3_{g}_bomcomments_{j}", placeholder="")
-                                            router_l3 = st.text_input("Router", key=f"l3_{g}_router_{j}", placeholder="")
+                                            bomcomplete_l3 = st.text_input("BomComplete", key=f"l3_{g}_bomcomplete_{j}", placeholder="", max_chars=MAX_LEN["BomComplete"])
+                                            bomcomments_l3 = st.text_input("BomComments", key=f"l3_{g}_bomcomments_{j}", placeholder="", max_chars=MAX_LEN["BomComments"])
+                                            router_l3 = st.text_input("Router", key=f"l3_{g}_router_{j}", placeholder="", max_chars=MAX_LEN["Router"])
                                     level3_config[-1]["manual_rows"].append({
                                         "PartNo": pno, "Description": desc, "Quantity": qty, "UM": um,
                                         "Source": SOURCE_DISPLAY_TO_VALUE.get(src_label) or None,
@@ -640,7 +652,7 @@ def main():
                 start_l2 = len(level2_rows)
                 manufactured_l1 = [c for c in child_data if c.get("Source") in ("M", "F")]
                 for child in manufactured_l1:
-                    level2_rows.extend(random_child_rows(child["PartNo"], count_r2, fields_to_populate=fset, level=2))
+                    level2_rows.extend(random_child_rows(child["PartNo"], count_r2, fields_to_populate=fset, level=2, use_long_partno=random_l2_per_l1.get("use_long_partno", False)))
                 for i in range(len(manufactured_l1)):
                     batch = level2_rows[start_l2 + i * count_r2 : start_l2 + (i + 1) * count_r2]
                     _apply_random_row_defaults(batch, mfg_count_r2, apply_revision_to_all, apply_location_to_all, parent_revision, parent_location)
@@ -649,7 +661,7 @@ def main():
                 if cfg["random"] and random_child_rows:
                     fset = set(cfg["fields"]) | {"Parent", "Sequence", "Level", "PartNo", "Quantity"}
                     start_l2 = len(level2_rows)
-                    level2_rows.extend(random_child_rows(cfg["parent"], cfg["count"], fields_to_populate=fset, level=2))
+                    level2_rows.extend(random_child_rows(cfg["parent"], cfg["count"], fields_to_populate=fset, level=2, use_long_partno=cfg.get("use_long_partno", False)))
                     _apply_random_row_defaults(level2_rows[start_l2:], cfg.get("manufactured_count", 0), apply_revision_to_all, apply_location_to_all, parent_revision, parent_location)
                 else:
                     for r in cfg.get("manual_rows", []):
@@ -674,7 +686,7 @@ def main():
                 start_l3 = len(level3_rows)
                 manufactured_l2 = [r for r in level2_rows if r.get("Source") in ("M", "F")]
                 for l2_row in manufactured_l2:
-                    level3_rows.extend(random_child_rows(l2_row["PartNo"], count_r3, fields_to_populate=fset, level=3))
+                    level3_rows.extend(random_child_rows(l2_row["PartNo"], count_r3, fields_to_populate=fset, level=3, use_long_partno=random_l3_per_l2.get("use_long_partno", False)))
                 for i in range(len(manufactured_l2)):
                     batch = level3_rows[start_l3 + i * count_r3 : start_l3 + (i + 1) * count_r3]
                     _apply_random_row_defaults(batch, mfg_count_r3, apply_revision_to_all, apply_location_to_all, parent_revision, parent_location)
@@ -683,7 +695,7 @@ def main():
                 if cfg["random"] and random_child_rows:
                     fset = set(cfg["fields"]) | {"Parent", "Sequence", "Level", "PartNo", "Quantity"}
                     start_l3 = len(level3_rows)
-                    level3_rows.extend(random_child_rows(cfg["parent"], cfg["count"], fields_to_populate=fset, level=3))
+                    level3_rows.extend(random_child_rows(cfg["parent"], cfg["count"], fields_to_populate=fset, level=3, use_long_partno=cfg.get("use_long_partno", False)))
                     _apply_random_row_defaults(level3_rows[start_l3:], cfg.get("manufactured_count", 0), apply_revision_to_all, apply_location_to_all, parent_revision, parent_location)
                 else:
                     for r in cfg.get("manual_rows", []):

@@ -1,9 +1,11 @@
 """Random data generation for BOM components.
    Only fields in fields_to_populate are set; all others are left blank in the output.
    Part numbers follow the pattern A001, A002, ... A999, B001, ... with description "{PartNo} Desc".
+   When use_long_partno=True, part numbers are 20-50 characters (alphanumeric, unique).
 """
 
 import random
+import string
 from typing import Dict, Any, List, Set
 
 # Global counter for sequential part numbers (A001, A002, ...); reset at start of each BOM build.
@@ -34,6 +36,20 @@ def get_next_partno() -> str:
     prefix = _prefix_from_index(prefix_idx)
     return f"{prefix}{num:03d}"
 
+
+def get_next_partno_long() -> str:
+    """Return a unique part number between 20 and 50 characters (alphanumeric)."""
+    global _part_number_counter
+    length = random.randint(20, 50)
+    # Unique prefix (e.g. P000001) + random chars to reach desired length
+    prefix = "P" + str(_part_number_counter).zfill(6)
+    _part_number_counter += 1
+    need = length - len(prefix)
+    if need <= 0:
+        return prefix[:length]
+    suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=need))
+    return prefix + suffix
+
 # Sample data for random generation
 LOCATIONS = ["GS", "WH", "FL", "RM", "WS", "DC"]
 PRODUCTLINES = ["JM", "FG", "RM", "CM", "CP"]
@@ -51,6 +67,7 @@ def random_row_for_child(
     sequence: int,
     level: int = 1,
     fields_to_populate: Set[str] | None = None,
+    use_long_partno: bool = False,
 ) -> Dict[str, Any]:
     """Generate one random child row. Only keys in fields_to_populate are set; others are omitted (blank)."""
     all_fields = {
@@ -61,10 +78,10 @@ def random_row_for_child(
     }
     fields = fields_to_populate if fields_to_populate else all_fields
 
-    partno = get_next_partno()
+    partno = get_next_partno_long() if use_long_partno else get_next_partno()
     # Ensure child PartNo is never equal to parent (would cause blank Parent in BOM and "does not have a parent part number" error)
     while partno == parent_partno:
-        partno = get_next_partno()
+        partno = get_next_partno_long() if use_long_partno else get_next_partno()
     row = {}
 
     if "PartNo" in fields:
@@ -130,9 +147,10 @@ def random_child_rows(
     count: int,
     fields_to_populate: Set[str] | None = None,
     level: int = 1,
+    use_long_partno: bool = False,
 ) -> List[Dict[str, Any]]:
     """Generate multiple random child rows. Only selected fields get values; others stay blank."""
     return [
-        random_row_for_child(parent_partno, i + 1, level=level, fields_to_populate=fields_to_populate)
+        random_row_for_child(parent_partno, i + 1, level=level, fields_to_populate=fields_to_populate, use_long_partno=use_long_partno)
         for i in range(count)
     ]
