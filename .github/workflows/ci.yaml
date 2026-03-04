@@ -1,0 +1,10 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    uses: GlobalShopSolutions-Limited/.github/.github/workflows/internal-app-build.yml@main
+    secrets: inherit
