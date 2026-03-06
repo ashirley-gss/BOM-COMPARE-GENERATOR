@@ -1,14 +1,17 @@
 # BOM Generator
 
-A Python tool for generating and comparing Bill of Materials (BOM) files.
+A Python tool used to generate a Bill of Material .xlsx file with user defined or randomly generated parts to be used in BOM Compare.
 
 ## Features
 
-- Generate BOM files from various input formats
-- Compare two BOM files and identify differences
-- Export to Excel format with formatted templates
-- **Web-based UI** for easy BOM generation
-- Command-line interface for automation
+- **Web-based UI** (Streamlit) for building BOMs that work with BOM Compare
+- **Hierarchical BOM structure**: Top parent (Level 0), Level 1 components, Level 2 and Level 3 sub-components, with parent selection per group
+- **Template-driven output**: Use a BOM Compare template (.xlsx) so the generated file matches the expected format and field lengths
+- **Manual or random entry** at each level: enter parts by hand or auto-generate part numbers and data (with optional long part numbers, 20–50 characters, when “Use Long Part” is enabled)
+- **Use Long Part** option: when enabled, PartNo and Revision allow longer values (50 and 10 characters) and you can choose to generate long random part numbers for any level or group
+- **Apply parent values**: Option to apply the parent’s Revision and/or Location to all component and sub-component parts
+- **One-click export**: Generate and download the .xlsx file for use in BOM Compare
+- **Command-line interface** for generate, compare, and create-template (see Usage)
 
 ## Installation
 

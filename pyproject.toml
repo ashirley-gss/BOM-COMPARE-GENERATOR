@@ -17,7 +17,6 @@ dependencies = [
 
 [project.scripts]
 bomgen = "bomgen.cli:app"
-bomgen-ui = "streamlit run bomgen/ui.py"
 
 [project.optional-dependencies]
 dev = [
