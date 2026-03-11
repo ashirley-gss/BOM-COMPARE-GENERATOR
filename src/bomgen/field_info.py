@@ -67,14 +67,15 @@ MAX_LENGTH = {
 }
 
 
-def apply_field_constraints(value: Any, field_name: str) -> Any:
-    """Apply Field_Info type and max length to a value. Returns constrained value."""
+def apply_field_constraints(value: Any, field_name: str, max_length_override: int | None = None) -> Any:
+    """Apply Field_Info type and max length to a value. Returns constrained value.
+    Use max_length_override for PartNo/Parent when Use Long Part is enabled (e.g. 50)."""
     ftype = FIELD_TYPE.get(field_name, "String")
 
     if value is None or value == "":
         return "" if ftype == "String" else None
 
-    max_len = MAX_LENGTH.get(field_name)
+    max_len = max_length_override if max_length_override is not None else MAX_LENGTH.get(field_name)
 
     if ftype == "Int32":
         return int(value)

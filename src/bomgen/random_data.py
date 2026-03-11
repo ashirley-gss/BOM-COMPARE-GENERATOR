@@ -41,17 +41,17 @@ def get_next_partno() -> str:
 
 
 def get_next_partno_long() -> str:
-    """Return a unique part number up to 17 characters (per Field_Info max length)."""
+    """Return a unique part number between 17 and 50 characters (for Use Long Part mode)."""
     global _part_number_counter
-    max_len = MAX_LENGTH.get("PartNo", 17)
-    # Unique prefix (e.g. P000001) + random chars, capped at max_len
+    length = random.randint(17, 50)
+    # Unique prefix (e.g. P000001) + random chars to reach desired length
     prefix = "P" + str(_part_number_counter).zfill(6)
     _part_number_counter += 1
-    if len(prefix) >= max_len:
-        return prefix[:max_len]
-    need = min(max_len - len(prefix), random.randint(1, 11))  # 7-17 chars total
+    need = length - len(prefix)
+    if need <= 0:
+        return prefix[:length]
     suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=need))
-    return (prefix + suffix)[:max_len]
+    return prefix + suffix
 
 # Sample data for random generation (all within Field_Info max lengths)
 LOCATIONS = ["GS", "WH", "FL", "RM", "WS", "DC"]  # max 30
@@ -145,9 +145,12 @@ def random_row_for_child(
         row["Router"] = ""
 
     # Apply Field_Info type and max length constraints to all generated values
+    # When Use Long Part: PartNo and Parent allow up to 50 chars
+    long_part_max = 50 if use_long_partno else None
     for key in list(row.keys()):
         val = row[key]
-        constrained = apply_field_constraints(val, key)
+        override = long_part_max if (use_long_partno and key in ("PartNo", "Parent")) else None
+        constrained = apply_field_constraints(val, key, max_length_override=override)
         row[key] = constrained if constrained is not None else ""
 
     return row

@@ -177,7 +177,7 @@ def main():
             key="use_long_part",
             help="When checked, PartNo max length = 50 and Revision max length = 10 for all levels.",
         )
-        max_partno = MAX_LEN["PartNo"]  # 17 per Field_Info (long part numbers also capped)
+        max_partno = 50 if use_long_part else MAX_LEN["PartNo"]
         max_revision = 10 if use_long_part else MAX_LEN["Revision"]
         c1, c2, c3, c4, c5 = st.columns(5)
         with c1:
@@ -415,7 +415,7 @@ def main():
                     if use_random_l2_per_l1:
                         count_random_l2 = st.number_input("Number of Level 2 parts per Level 1 part", min_value=1, max_value=30, value=2, key="count_random_l2")
                         l2_per_l1_manufactured = st.number_input("How many sub-components to have Source of Manufactured to Job?", min_value=0, max_value=int(count_random_l2), value=0, step=1, key="l2_per_l1_manufactured")
-                        use_long_part_numbers_l2_per_l1 = st.checkbox("Use Long Part Numbers", value=False, key="l2_per_l1_use_long_part_numbers", help="Generate part numbers 20–50 characters long.") if use_long_part else False
+                        use_long_part_numbers_l2_per_l1 = st.checkbox("Use Long Part Numbers", value=False, key="l2_per_l1_use_long_part_numbers", help="Generate part numbers 17–50 characters long.") if use_long_part else False
                         multiselect_options_l2 = [f for f in TEMPLATE_HEADERS if f not in ("Parent", "Sequence", "Level")]
                         fields_random_l2 = st.multiselect("Fields to populate", options=multiselect_options_l2, default=["PartNo", "Description", "Quantity", "Cost"], key="fields_random_l2")
                         random_l2_per_l1 = {"count": count_random_l2, "fields": fields_random_l2, "manufactured_count": min(int(l2_per_l1_manufactured), count_random_l2), "use_long_partno": use_long_part_numbers_l2_per_l1}
@@ -426,7 +426,7 @@ def main():
             multiselect_options_l2 = [f for f in TEMPLATE_HEADERS if f not in ("Parent", "Sequence", "Level")]
             if random_all_l2:
                 l2_all_manufactured = st.number_input("How many sub-components per group to have Source of Manufactured to Job?", min_value=0, max_value=2, value=0, step=1, key="l2_all_manufactured")
-                use_long_part_numbers_l2_all = st.checkbox("Use Long Part Numbers", value=False, key="l2_all_use_long_part_numbers", help="Generate part numbers 20–50 characters long.") if use_long_part else False
+                use_long_part_numbers_l2_all = st.checkbox("Use Long Part Numbers", value=False, key="l2_all_use_long_part_numbers", help="Generate part numbers 17–50 characters long.") if use_long_part else False
                 fields_all_l2 = st.multiselect("Fields to populate (all Level 2 groups)", options=multiselect_options_l2, default=["PartNo", "Description", "Quantity", "Cost"], key="fields_all_l2")
                 for g in range(num_l2_groups):
                     parent_l1 = level1_partnos_manufactured[g % len(level1_partnos_manufactured)]
@@ -439,7 +439,7 @@ def main():
                         use_random_l2 = st.checkbox("Randomly generate this group", key=f"l2_random_{g}")
                         if use_random_l2:
                             l2_grp_manufactured = st.number_input("How many sub-components to have Source of Manufactured to Job?", min_value=0, max_value=int(count_l2), value=0, step=1, key=f"l2_grp_manufactured_{g}")
-                            use_long_part_numbers_l2_grp = st.checkbox("Use Long Part Numbers", value=False, key=f"l2_grp_use_long_part_numbers_{g}", help="Generate part numbers 20–50 characters long.") if use_long_part else False
+                            use_long_part_numbers_l2_grp = st.checkbox("Use Long Part Numbers", value=False, key=f"l2_grp_use_long_part_numbers_{g}", help="Generate part numbers 17–50 characters long.") if use_long_part else False
                             fields_l2 = st.multiselect("Fields to populate", options=multiselect_options_l2, default=["PartNo", "Description", "Quantity", "Cost"], key=f"l2_fields_{g}")
                             level2_config.append({"parent": parent_l1, "count": count_l2, "random": True, "fields": fields_l2, "manufactured_count": min(int(l2_grp_manufactured), count_l2), "use_long_partno": use_long_part_numbers_l2_grp})
                         else:
@@ -534,7 +534,7 @@ def main():
                     if use_random_l3_per_l2:
                         count_random_l3 = st.number_input("Number of Level 3 parts per Level 2 part", min_value=1, max_value=20, value=2, key="count_random_l3")
                         l3_per_l2_manufactured = st.number_input("How many sub-components to have Source of Manufactured to Job?", min_value=0, max_value=int(count_random_l3), value=0, step=1, key="l3_per_l2_manufactured")
-                        use_long_part_numbers_l3_per_l2 = st.checkbox("Use Long Part Numbers", value=False, key="l3_per_l2_use_long_part_numbers", help="Generate part numbers 20–50 characters long.") if use_long_part else False
+                        use_long_part_numbers_l3_per_l2 = st.checkbox("Use Long Part Numbers", value=False, key="l3_per_l2_use_long_part_numbers", help="Generate part numbers 17–50 characters long.") if use_long_part else False
                         multiselect_options_l3 = [f for f in TEMPLATE_HEADERS if f not in ("Parent", "Sequence", "Level")]
                         fields_random_l3 = st.multiselect("Fields to populate (L3)", options=multiselect_options_l3, default=["PartNo", "Description", "Quantity", "Cost"], key="fields_random_l3")
                         random_l3_per_l2 = {"count": count_random_l3, "fields": fields_random_l3, "manufactured_count": min(int(l3_per_l2_manufactured), count_random_l3), "use_long_partno": use_long_part_numbers_l3_per_l2}
@@ -549,7 +549,7 @@ def main():
             multiselect_options_l3 = [f for f in TEMPLATE_HEADERS if f not in ("Parent", "Sequence", "Level")]
             if random_all_l3:
                 l3_all_manufactured = st.number_input("How many sub-components per group to have Source of Manufactured to Job?", min_value=0, max_value=2, value=0, step=1, key="l3_all_manufactured")
-                use_long_part_numbers_l3_all = st.checkbox("Use Long Part Numbers", value=False, key="l3_all_use_long_part_numbers", help="Generate part numbers 20–50 characters long.") if use_long_part else False
+                use_long_part_numbers_l3_all = st.checkbox("Use Long Part Numbers", value=False, key="l3_all_use_long_part_numbers", help="Generate part numbers 17–50 characters long.") if use_long_part else False
                 fields_all_l3 = st.multiselect("Fields to populate (all Level 3 groups)", options=multiselect_options_l3, default=["PartNo", "Description", "Quantity", "Cost"], key="fields_all_l3")
                 for g in range(int(num_l3_groups)):
                     parent_l2 = level2_partnos_manufactured[g % len(level2_partnos_manufactured)]
@@ -565,7 +565,7 @@ def main():
                         use_random_l3 = st.checkbox("Randomly generate this group", key=f"l3_random_{g}")
                         if use_random_l3:
                             l3_grp_manufactured = st.number_input("How many sub-components to have Source of Manufactured to Job?", min_value=0, max_value=int(count_l3), value=0, step=1, key=f"l3_grp_manufactured_{g}")
-                            use_long_part_numbers_l3_grp = st.checkbox("Use Long Part Numbers", value=False, key=f"l3_grp_use_long_part_numbers_{g}", help="Generate part numbers 20–50 characters long.") if use_long_part else False
+                            use_long_part_numbers_l3_grp = st.checkbox("Use Long Part Numbers", value=False, key=f"l3_grp_use_long_part_numbers_{g}", help="Generate part numbers 17–50 characters long.") if use_long_part else False
                             fields_l3 = st.multiselect("Fields to populate", options=multiselect_options_l3, default=["PartNo", "Description", "Quantity", "Cost"], key=f"l3_fields_{g}")
                             level3_config.append({"parent": parent_l2, "count": count_l3, "random": True, "fields": fields_l3, "manufactured_count": min(int(l3_grp_manufactured), count_l3), "use_long_partno": use_long_part_numbers_l3_grp})
                         else:
