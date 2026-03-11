@@ -1,12 +1,15 @@
 """Random data generation for BOM components.
    Only fields in fields_to_populate are set; all others are left blank in the output.
    Part numbers follow the pattern A001, A002, ... A999, B001, ... with description "{PartNo} Desc".
-   When use_long_partno=True, part numbers are 20-50 characters (alphanumeric, unique).
+   When use_long_partno=True, part numbers are up to 17 chars (per Field_Info max length).
+   All generated values respect Field_Info type and Maximum Length constraints.
 """
 
 import random
 import string
 from typing import Dict, Any, List, Set
+
+from .field_info import MAX_LENGTH, apply_field_constraints
 
 # Global counter for sequential part numbers (A001, A002, ...); reset at start of each BOM build.
 _part_number_counter = 0
@@ -38,23 +41,24 @@ def get_next_partno() -> str:
 
 
 def get_next_partno_long() -> str:
-    """Return a unique part number between 20 and 50 characters (alphanumeric)."""
+    """Return a unique part number up to 17 characters (per Field_Info max length)."""
     global _part_number_counter
-    length = random.randint(20, 50)
-    # Unique prefix (e.g. P000001) + random chars to reach desired length
+    max_len = MAX_LENGTH.get("PartNo", 17)
+    # Unique prefix (e.g. P000001) + random chars, capped at max_len
     prefix = "P" + str(_part_number_counter).zfill(6)
     _part_number_counter += 1
-    need = length - len(prefix)
-    if need <= 0:
-        return prefix[:length]
+    if len(prefix) >= max_len:
+        return prefix[:max_len]
+    need = min(max_len - len(prefix), random.randint(1, 11))  # 7-17 chars total
     suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=need))
-    return prefix + suffix
+    return (prefix + suffix)[:max_len]
 
-# Sample data for random generation
-LOCATIONS = ["GS", "WH", "FL", "RM", "WS", "DC"]
-PRODUCTLINES = ["JM", "FG", "RM", "CM", "CP"]
-SOURCES = ["M", "P", "B", "C"]
-SORTCODES = ["COMPBX", "HARDWARE", "LEVEL-1", "LEVEL-2", "ELECTRIC", "ELWR", "SHTCRS", "BARSS", "SHTALUM"]
+# Sample data for random generation (all within Field_Info max lengths)
+LOCATIONS = ["GS", "WH", "FL", "RM", "WS", "DC"]  # max 30
+PRODUCTLINES = ["JM", "FG", "RM", "CM", "CP"]  # max 2
+SOURCES = ["M", "P", "B", "C"]  # max 1
+SORTCODES = ["COMPBX", "HARDWARE", "LEVEL-1", "LEVEL-2", "ELECTRIC", "ELWR", "SHTCRS", "BARSS", "SHTALUM"]  # max 12
+UM_OPTIONS = ["EA", "FT", "M", "KG", "L", "P", "J", "F"]  # max 2 chars
 
 
 def random_revision() -> str:
@@ -103,7 +107,7 @@ def random_row_for_child(
     if "ConsumptionConv" in fields:
         row["ConsumptionConv"] = round(random.uniform(0.25, 2.0), 2)
     if "UM" in fields:
-        row["UM"] = random.choice(["EA", "FT", "M", "KG", "L", "P", "J", "F", "SF", "FT", "SI"])
+        row["UM"] = random.choice(UM_OPTIONS)
     if "Cost" in fields:
         row["Cost"] = round(random.uniform(0.5, 250.0), 2)
     if "Source" in fields:
@@ -111,7 +115,7 @@ def random_row_for_child(
     if "Drawing" in fields:
         row["Drawing"] = f"DRAW{random.randint(1, 99)}"
     if "Leadtime" in fields:
-        row["Leadtime"] = random.randint(1, 21)
+        row["Leadtime"] = random.randint(1, 9)  # max 1 digit per Field_Info
     if "Level" in fields:
         row["Level"] = level
     if "Location" in fields:
@@ -127,7 +131,8 @@ def random_row_for_child(
     if "Sequence" in fields:
         row["Sequence"] = sequence * 100 if sequence > 0 else 100
     if "SortCode" in fields:
-        row["SortCode"] = random.choice(SORTCODES)
+        sc = random.choice(SORTCODES)
+        row["SortCode"] = sc[:12] if len(sc) > 12 else sc  # max 12
     if "Tag" in fields:
         row["Tag"] = random.choice(["TG", "TAG1", "TAG2"])
     if "Category" in fields:
@@ -135,9 +140,15 @@ def random_row_for_child(
     if "BomComplete" in fields:
         row["BomComplete"] = ""
     if "BomComments" in fields:
-        row["BomComments"] = f"BOMCOMMENTS-{random.randint(1, 5)}"
+        row["BomComments"] = random.choice(["", "Y", "N"])  # max 1 char
     if "Router" in fields:
         row["Router"] = ""
+
+    # Apply Field_Info type and max length constraints to all generated values
+    for key in list(row.keys()):
+        val = row[key]
+        constrained = apply_field_constraints(val, key)
+        row[key] = constrained if constrained is not None else ""
 
     return row
 

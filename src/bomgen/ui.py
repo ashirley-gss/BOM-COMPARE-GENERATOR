@@ -88,12 +88,11 @@ CATEGORY_LABELS = [t[0] for t in CATEGORY_OPTIONS]
 SOURCE_LABELS = [t[0] for t in SOURCE_OPTIONS]
 
 # Max lengths from BOM Compare template Field_Info (for st.text_input max_chars)
-MAX_LEN = {
-    "PartNo": 17, "Revision": 3, "Description": 30, "AltDescription1": 30, "AltDescription2": 30, "DescExtra": 30,
-    "IssueUM": 2, "UM": 2, "Source": 20, "Drawing": 30, "Leadtime": 2, "Level": 30, "Location": 30,
-    "Memo1": 30, "Memo2": 30, "Parent": 17, "Productline": 2, "Sequence": 12, "SortCode": 6, "Tag": 1,
-    "Category": 1, "BomComplete": 1, "BomComments": 1, "Router": 20,
-}
+# Synced with field_info.MAX_LENGTH
+try:
+    from bomgen.field_info import MAX_LENGTH as MAX_LEN
+except ImportError:
+    from .field_info import MAX_LENGTH as MAX_LEN
 
 
 def _apply_random_row_defaults(rows, manufactured_count, apply_revision_to_all, apply_location_to_all, parent_revision, parent_location):
@@ -178,7 +177,7 @@ def main():
             key="use_long_part",
             help="When checked, PartNo max length = 50 and Revision max length = 10 for all levels.",
         )
-        max_partno = 50 if use_long_part else MAX_LEN["PartNo"]
+        max_partno = MAX_LEN["PartNo"]  # 17 per Field_Info (long part numbers also capped)
         max_revision = 10 if use_long_part else MAX_LEN["Revision"]
         c1, c2, c3, c4, c5 = st.columns(5)
         with c1:
