@@ -4,7 +4,42 @@ on:
   push:
     branches: [main]
 
+env:
+  AWS_REGION: us-east-2
+  ECR_REGISTRY: 167028478405.dkr.ecr.us-east-2.amazonaws.com
+  ECR_REPOSITORY: bom-compare-generator
+  IMAGE_TAG: staging
+
 jobs:
   build:
-    uses: GlobalShopSolutions-InternalTools/.github/.github/workflows/internal-app-build.yml@main
-    secrets: inherit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate .deploy/app.yaml
+        run: |
+          if [ ! -f .deploy/app.yaml ]; then
+            echo "Error: .deploy/app.yaml is required"
+            exit 1
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
