@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 COPY pyproject.toml .
 COPY README.md .
 COPY src/ src/
+COPY templates/ templates/
 
 RUN pip install --no-cache-dir -e .
 
